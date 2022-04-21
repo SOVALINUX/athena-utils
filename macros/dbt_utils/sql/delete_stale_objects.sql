@@ -1,17 +1,17 @@
-{% macro athena__delete_stale_ctas(schema, dry_run=True, except_names='') %}
-  {{ return (_athena__delete_stale_objects(schema, dry_run, except_names, 'ctas_.*_[0-9]+', True))}}
+{% macro delete_stale_ctas(schema, dry_run=True, except_names='') %}
+  {{ return (athena_utils._athena__delete_stale_objects(schema, 'table', dry_run, except_names, 'ctas_.*_[0-9]+', True))}}
 {% endmacro %}
 
-{% macro athena__delete_stale_views(schema, dry_run=True, except_names='') %}
-  {{ return (_athena__delete_stale_objects(schema, dry_run, '{},ctas_.*_[0-9]+'.format(except_names), '', False))}}
+{% macro delete_stale_views(schema, dry_run=True, except_names='') %}
+  {{ return (athena_utils._athena__delete_stale_objects(schema, 'view', dry_run, '{},ctas_.*_[0-9]+'.format(except_names), '', False))}}
 {% endmacro %}
 
 {% macro athena__delete_stale_objects(schema, dry_run=True, except_names='') %}
-  {{ athena__delete_stale_views(schema, dry_run, except_names)}}
-  {{ athena__delete_stale_ctas(schema, dry_run, except_names)}}
+  {% do athena_utils.delete_stale_views(schema, dry_run, except_names) %}
+  {% do athena_utils.delete_stale_ctas(schema, dry_run, except_names) %}
 {% endmacro %}
 
-{% macro _athena__delete_stale_objects(schema, dry_run=True, except_names='', include_names='', skip_latest_entity=False) %}
+{% macro _athena__delete_stale_objects(schema, ref_type, dry_run=True, except_names='', include_names='', skip_latest_entity=False) %}
   {% if (schema is not string and schema is not iterable) or schema is mapping or schema|length <= 0 %}
     {% do exceptions.raise_compiler_error('"schema" must be a string or a list') %}
   {% endif %}
@@ -84,6 +84,6 @@
 		{%- endif -%}
       {%- endfor -%}
   {% else %}
-    {% do log('No orphan tables to clean.', True) %}
+    {% do log("No stale " ~ ref_type ~ "s to clean.", True) %}
   {% endif %}
 {% endmacro %}
