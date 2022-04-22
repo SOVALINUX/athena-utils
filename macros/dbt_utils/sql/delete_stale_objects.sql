@@ -1,3 +1,11 @@
+{% macro delete_stale_ctas_run_end(schema, dry_run=True, except_names='') %}
+  {% if 'nodes' not in graph %}
+    {{ log('Skipping on-run-end macros execution during the run start. Looks like a dbt issue https://github.com/dbt-labs/dbt-core/issues/4785') }}
+  {% else %}
+    {% do athena_utils.delete_stale_ctas(schema, dry_run, except_names) %}
+  {% endif %}
+{% endmacro %}
+
 {% macro delete_stale_ctas(schema, dry_run=True, except_names='') %}
   {{ return (athena_utils._athena__delete_stale_objects(schema, 'table', dry_run, except_names, 'ctas_.*_[0-9]+', True))}}
 {% endmacro %}
