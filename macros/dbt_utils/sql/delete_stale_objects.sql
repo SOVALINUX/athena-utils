@@ -1,5 +1,5 @@
 {% macro delete_stale_ctas_run_end(schema, dry_run=True, except_names='') %}
-  {% if 'nodes' not in graph %}
+  {% if ('nodes' not in graph) or (schemas | length == 0) %}
     {{ log('Skipping on-run-end macros execution during the run start. Looks like a dbt issue https://github.com/dbt-labs/dbt-core/issues/4785') }}
   {% else %}
     {% do athena_utils.delete_stale_ctas(schema, dry_run, except_names) %}
@@ -30,16 +30,16 @@
   {% set query %}
     SELECT current.schema_name,
            current.ref_name,
-		   current.table_type,
-		   current.ref_base_name
+           current.table_type,
+           current.ref_base_name
     FROM (
       SELECT table_schema AS schema_name,
              table_name  AS ref_name,
-			 CASE WHEN regexp_like(table_name, '(?i)\Actas_.*_[0-9]+\Z') THEN substr(table_name, 1, length(table_name) - 14) ELSE table_name END AS ref_base_name,
+             CASE WHEN regexp_like(table_name, '(?i)\Actas_.*_[0-9]+\Z') THEN substr(table_name, 1, length(table_name) - 14) ELSE table_name END AS ref_base_name,
              {{ dbt_utils.get_table_types_sql() }}
       FROM {{ target.database }}.information_schema.tables
       WHERE table_schema IN (
-	    {%- if schema is string -%}
+        {%- if schema is string -%}
           '{{ schema }}'
         {%- elif schema is iterable and (var is not string and var is not mapping) -%}
           {%- for s in schema -%}
@@ -47,40 +47,42 @@
           {%- endfor -%}
         {%- endif -%}
       )
-	  {%- for e in except_names_list -%}
-	    {%- if e | length > 0 -%}
-		  AND not regexp_like(table_name, '(?i)\A{{e}}\Z')
-		{%- endif -%}
-	  {%- endfor-%}
-	  {%- for i in include_names_list -%}
-	    {%- if i | length > 0 -%}
-		  AND regexp_like(table_name, '(?i)\A{{i}}\Z')
-		{%- endif -%}
-	  {%- endfor-%}
-	  
-	) as current
+      {%- for e in except_names_list -%}
+        {%- if e | length > 0 -%}
+          AND not regexp_like(table_name, '(?i)\A{{e}}\Z')
+        {%- endif -%}
+      {%- endfor-%}
+      {%- for i in include_names_list -%}
+        {%- if i | length > 0 -%}
+          AND regexp_like(table_name, '(?i)\A{{i}}\Z')
+        {%- endif -%}
+      {%- endfor-%}
+      
+    ) as current
     LEFT JOIN (
       {%- for node in graph.nodes.values() | selectattr("resource_type", "equalto", "model") | list
                     + graph.nodes.values() | selectattr("resource_type", "equalto", "seed")  | list %}
-        SELECT
-        '{{node.schema}}' AS schema_name
-         ,'{{node.name}}' AS ref_name
-        {% if not loop.last %} UNION ALL {% endif %}
+        {%- if not node.name.startswith('ctas_') and ref_type == 'table' -%}
+          SELECT
+          '{{node.schema}}' AS schema_name
+           ,'{{node.name}}' AS ref_name
+          {% if not loop.last %} UNION ALL {% endif %}
+        {%- endif -%}
       {%- endfor %}
     ) AS desired on desired.schema_name = current.schema_name
                 and desired.ref_name    = current.ref_name
     WHERE desired.ref_name is null
-	ORDER BY ref_name DESC
+    ORDER BY ref_name DESC
   {% endset %}
   {{ log("Delete Stale Objects debug query: " ~ query)}}
   {%- set result = run_query(query) -%}
   {%- set processed_ctas = [] -%}
   {% if result %}
       {%- for to_delete in result -%}
-	    {%- if skip_latest_entity and to_delete[3] not in processed_ctas -%}
-		  {{ log("First time met object " ~ to_delete[3] ~ ", skipping drop of " ~ to_delete[1], True)}}
-		  {{ processed_ctas.append(to_delete[3]) }}
-		{%- else -%}
+        {%- if skip_latest_entity and to_delete[3] not in processed_ctas -%}
+          {{ log("First time met object " ~ to_delete[3] ~ ", skipping drop of " ~ to_delete[1], True)}}
+          {{ processed_ctas.append(to_delete[3]) }}
+        {%- else -%}
           {%- if dry_run -%}
             {%- do log('To be dropped: ' ~ to_delete[2] ~ ' ' ~ to_delete[0] ~ '.' ~ to_delete[1], True) -%}
           {%- else -%}
@@ -89,7 +91,7 @@
             {% do run_query(drop_command) %}
             {%- do log('Dropped ' ~ to_delete[2] ~ ' ' ~ to_delete[0] ~ '.' ~ to_delete[1], True) -%}
           {%- endif -%}
-		{%- endif -%}
+        {%- endif -%}
       {%- endfor -%}
   {% else %}
     {% do log("No stale " ~ ref_type ~ "s to clean.", True) %}
