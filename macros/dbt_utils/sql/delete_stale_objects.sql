@@ -62,7 +62,7 @@
     LEFT JOIN (
       {%- for node in graph.nodes.values() | selectattr("resource_type", "equalto", "model") | list
                     + graph.nodes.values() | selectattr("resource_type", "equalto", "seed")  | list %}
-        {%- if not node.name.startswith('ctas_') and ref_type == 'table' -%}
+        {%- if ref_type != 'table' or not node.name.startswith('ctas_') -%}
           SELECT
           '{{node.schema}}' AS schema_name
            ,'{{node.name}}' AS ref_name
