@@ -60,15 +60,16 @@
       
     ) as current
     LEFT JOIN (
-      {%- for node in graph.nodes.values() | selectattr("resource_type", "equalto", "model") | list
+      {% for node in graph.nodes.values() | selectattr("resource_type", "equalto", "model") | list
                     + graph.nodes.values() | selectattr("resource_type", "equalto", "seed")  | list %}
-        {%- if ref_type != 'table' or not node.name.startswith('ctas_') -%}
+        {% if ref_type != 'table' or not node.name.startswith('ctas_') %}
           SELECT
           '{{node.schema}}' AS schema_name
            ,'{{node.name}}' AS ref_name
-          {% if not loop.last %} UNION ALL {% endif %}
-        {%- endif -%}
-      {%- endfor %}
+           UNION ALL  
+        {% endif %}
+      {% endfor %}
+	  SELECT '_stub_' AS schema_name, '_stub_' as ref_name
     ) AS desired on desired.schema_name = current.schema_name
                 and desired.ref_name    = current.ref_name
     WHERE desired.ref_name is null
