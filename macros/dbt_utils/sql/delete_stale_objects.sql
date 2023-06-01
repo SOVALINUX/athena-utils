@@ -23,7 +23,7 @@
   {% if (schema is not string and schema is not iterable) or schema is mapping or schema|length <= 0 %}
     {% do exceptions.raise_compiler_error('"schema" must be a string or a list') %}
   {% endif %}
-  
+
   {% set except_names_list = except_names.split(',') %}
   {% set include_names_list = include_names.split(',') %}
 
@@ -57,7 +57,7 @@
           AND regexp_like(table_name, '(?i)\A{{i}}\Z')
         {%- endif -%}
       {%- endfor-%}
-      
+
     ) as current
     LEFT JOIN (
       {% for node in graph.nodes.values() | selectattr("resource_type", "equalto", "model") | list
@@ -66,7 +66,7 @@
           SELECT
           '{{node.schema}}' AS schema_name
            ,'{{node.name}}' AS ref_name
-           UNION ALL  
+           UNION ALL
         {% endif %}
       {% endfor %}
 	  SELECT '_stub_' AS schema_name, '_stub_' as ref_name
