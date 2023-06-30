@@ -14,8 +14,6 @@ This repo contains several fixes and addons that are used by EPAM Anywhere Analy
 Some of them are in the process of adding to the upstream  
 Changes and updates:  
 - Fixed `get_tables_by_pattern_sql`
-- Added helper `delete_stale_objects`, `delete_stale_ctas`, `delete_stale_views` to help drop outdated objects from DB
-- Added helper `delete_stale_ctas_run_end` to drop stale objects that were created during Zero-Downtime deployments on-run-end. Separate one due to dbt-core issue https://github.com/dbt-labs/dbt-core/issues/4785  
 
 ## Installation Instructions
 
